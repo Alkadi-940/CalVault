@@ -1,0 +1,4 @@
+package: dev.calvault
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
+permission: dev.calvault.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission: name='dev.calvault.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'

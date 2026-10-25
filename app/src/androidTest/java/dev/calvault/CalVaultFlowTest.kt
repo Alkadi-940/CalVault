@@ -99,7 +99,7 @@ class CalVaultFlowTest {
         rule.onNodeWithContentDescription("Equals", useUnmergedTree = true).performTouchInput { longClick() }
         rule.waitUntil(60000) { model.ui.value.screen == Screen.VAULT && !model.ui.value.busy }
         assertEquals("A quiet afternoon.png", model.vault.items().first { it.id == image.id }.name)
-        assertTrue(rule.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+        assertFalse(rule.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
 
         val backup = ByteArrayOutputStream()
         model.vault.writeBackup(backup)
@@ -153,14 +153,9 @@ class CalVaultFlowTest {
 
     private fun screenshot(name: String) {
         rule.waitForIdle()
-        // Synthetic-fixture screenshots only. Production code always keeps FLAG_SECURE set.
-        rule.runOnIdle { rule.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-        try {
-            rule.waitForIdle()
-            val image = rule.onRoot().captureToImage().asAndroidBitmap()
-            val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "qa")
-            directory.mkdirs()
-            File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { rule.runOnIdle { rule.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) } }
+        val image = rule.onRoot().captureToImage().asAndroidBitmap()
+        val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "qa")
+        directory.mkdirs()
+        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }

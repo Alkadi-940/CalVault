@@ -45,7 +45,8 @@ import dev.calvault.core.FolderPath
                         SettingSwitch("Resume my last location", "After unlocking, restore the folder, filter, selection, viewer, and media position.", value.resumeLastLocation) { model.updateSettings(value.copy(resumeLastLocation = it)) }
                         HorizontalDivider(); Text("Change PIN", style = MaterialTheme.typography.titleLarge)
                         PinField("New PIN", newPin) { newPin = it }; PinField("Confirm new PIN", confirmPin) { confirmPin = it }
-                        OutlinedButton(onClick = { model.changePin(newPin); newPin = ""; confirmPin = "" }, enabled = newPin.length in 6..12 && newPin == confirmPin, modifier = Modifier.fillMaxWidth()) { Text("Update PIN") }
+                        Text("Choose 3–9 digits.", style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = { model.changePin(newPin); newPin = ""; confirmPin = "" }, enabled = newPin.length in 3..9 && newPin == confirmPin, modifier = Modifier.fillMaxWidth()) { Text("Update PIN") }
                         Text("PIN and recovery-key entry are never restored after closing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     "Storage" -> {

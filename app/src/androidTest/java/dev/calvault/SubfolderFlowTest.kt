@@ -4,7 +4,6 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.SystemClock
-import android.view.WindowManager
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -81,11 +80,8 @@ class SubfolderFlowTest {
     }
     private fun screenshot(name: String) {
         rule.waitForIdle()
-        rule.runOnIdle { rule.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-        try {
-            val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
-            val directory = File(rule.activity.getExternalFilesDir(null), "qa-subfolders").also { it.mkdirs() }
-            File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { rule.runOnIdle { rule.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) } }
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        val directory = File(rule.activity.getExternalFilesDir(null), "qa-subfolders").also { it.mkdirs() }
+        File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }

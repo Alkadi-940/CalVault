@@ -2,6 +2,14 @@
 
 Implementation verification on 2026-10-25. This record distinguishes executed checks from remaining release work.
 
+## v0.2.2 PIN and screenshot update
+
+- 41 core tests passed, with the existing optional large streaming test skipped. New checks cover 3/9-digit boundaries for setup, PIN change, recovery, and backup restore; rejection of invalid new PINs; and independent legacy 10/12-digit envelopes that remain unlockable and can be changed to a shorter PIN.
+- Removed the production secure-window flag and all test-only screenshot flag overrides. Native Android capture is tested without changing window flags, alongside calculator unlock with 3- and 9-digit PINs and disabled submission for two digits.
+- The PIN and native capture tests passed on Android 10/API 29 and Android 16/API 36 emulators. The signed optimized APK was also installed, unlocked, and captured using ordinary Android screencap on both platforms. Android 10 was restarted with the documented 256 MiB test heap after a framework startup stall.
+- Version name is 0.2.2 and Android version code is 5. Encryption/KDF parameters and the preview signing identity are unchanged. Earlier capture-protection statements below describe their historical releases.
+- Evidence for this update is under `docs/evidence/v0.2.2/` and `docs/screenshots/v0.2.2/`.
+
 ## Subfolder update (v0.2.1)
 
 - 38 core tests passed; the existing opt-in large streaming test was skipped because encryption/streaming code did not change. Five new hierarchy tests cover sibling names, the depth bound, parent rename, empty descendants, recursive bin/restore/permanent deletion, backup restore, and recovery of long nested paths. An independent version 2 fixture checks migration and literal slash names alongside version 1 compatibility tests.

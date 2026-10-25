@@ -51,8 +51,13 @@ object Crypto {
         } finally { prk.fill(0) }
     }
 
+    fun validateNewPin(pin: CharArray) {
+        require(pin.size in 3..9 && pin.all { it in '0'..'9' }) { "Use 3–9 digits" }
+    }
+
     fun pinKey(pin: CharArray, salt: ByteArray): ByteArray {
-        require(pin.size in 6..12 && pin.all { it in '0'..'9' }) { "Use 6–12 digits" }
+        // Derivation still accepts older 10–12 digit PINs; new envelopes enforce the current policy.
+        require(pin.size in 3..12 && pin.all { it in '0'..'9' }) { "Enter a valid numeric PIN" }
         val parameters = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
             .withVersion(Argon2Parameters.ARGON2_VERSION_13)
             .withMemoryAsKB(65536).withIterations(3).withParallelism(4).withSalt(salt).build()

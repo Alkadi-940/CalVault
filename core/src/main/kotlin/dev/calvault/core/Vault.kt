@@ -525,6 +525,7 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
     }
 
     private fun withPin(envelope: Envelope, master: ByteArray, pin: CharArray): Envelope {
+        Crypto.validateNewPin(pin)
         val salt = Crypto.random(16)
         val key = Crypto.pinKey(pin, salt)
         val inner = try { Crypto.seal(key, master, aad(envelope.id, "pin")) } finally { key.fill(0) }

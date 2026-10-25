@@ -94,11 +94,11 @@ import java.time.LocalDate
             Text("STEP ${step + 1} OF 2", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp, color = MaterialTheme.colorScheme.primary)
             if (step == 0) {
                 Text("Your private entrance.", style = MaterialTheme.typography.headlineLarge)
-                Text("Choose 6–12 digits. To unlock, enter your PIN in the calculator and hold the equals button.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Choose 3–9 digits. To unlock, enter your PIN in the calculator and hold the equals button.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 PinField("Create PIN", pin) { pin = it }
                 PinField("Confirm PIN", confirmation) { confirmation = it }
                 Text("A normal tap on equals always calculates. An accessible Unlock action is also available in the menu.", style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { step = 1 }, enabled = pin.length in 6..12 && pin == confirmation, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
+                Button(onClick = { step = 1 }, enabled = pin.length in 3..9 && pin == confirmation, modifier = Modifier.fillMaxWidth()) { Text("Continue") }
             } else {
                 Text("Keep a way back in.", style = MaterialTheme.typography.headlineLarge)
                 Text("Write this recovery key down or save it in a trusted password manager. Keep it separate from your backups. It is shown only during setup.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -148,9 +148,9 @@ import java.time.LocalDate
         }
     }
     fun unlock(forceRepair: Boolean = false) {
-        if (expression.length in 6..12 && expression.all { it in '0'..'9' }) {
+        if (expression.length in 3..12 && expression.all { it in '0'..'9' }) {
             model.unlock(expression, forceRepair); expression = ""; history = ""; error = false
-        } else model.message("Enter your 6–12 digit PIN, then hold equals.")
+        } else model.message("Enter your PIN, then hold equals. New PINs use 3–9 digits.")
     }
     val header: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -231,14 +231,14 @@ import java.time.LocalDate
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false), visualTransformation = PasswordVisualTransformation())
             PinField("New PIN", pin) { pin = it }
             PinField("Confirm new PIN", confirm) { confirm = it }
-            Button(onClick = { onRecover(key, pin) }, enabled = pin.length in 6..12 && pin == confirm && key.filter { it.isLetterOrDigit() }.length == 72 && !busy, modifier = Modifier.fillMaxWidth()) { Text(if (restoring) "Restore and verify" else "Recover vault") }
+            Button(onClick = { onRecover(key, pin) }, enabled = pin.length in 3..9 && pin == confirm && key.filter { it.isLetterOrDigit() }.length == 72 && !busy, modifier = Modifier.fillMaxWidth()) { Text(if (restoring) "Restore and verify" else "Recover vault") }
             Text("Without the recovery key or a working PIN, encrypted files cannot be recovered. Clearing app data removes your local vault.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable internal fun PinField(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(value, { onChange(it.filter { c -> c in '0'..'9' }.take(12)) }, label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
+    OutlinedTextField(value, { onChange(it.filter { c -> c in '0'..'9' }.take(9)) }, label = { Text(label) }, modifier = Modifier.fillMaxWidth(),
         singleLine = true, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, autoCorrectEnabled = false))
 }
 @Composable internal fun Header(title: String, onBack: () -> Unit, trailing: @Composable () -> Unit = {}) {

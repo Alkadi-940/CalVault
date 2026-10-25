@@ -49,10 +49,21 @@ class LegacyCompatibilityTest {
         restored.restoreFolder(restored.trashFolders().single().id)
         assertTrue("Old empty" in restored.folders())
     }
-    private fun legacyFixture(version: Int = 1): Legacy {
+    @Test fun legacyLongPinsUnlockAndCanBeReplacedWithShortPins() {
+        listOf("1234567890", "123456789012").forEach { pin ->
+            val data = legacyFixture(2, pin)
+            data.vault.lock(); data.vault.unlock(pin.toCharArray())
+            assertEquals(1, data.vault.items().size)
+            data.vault.changePin("123".toCharArray())
+            data.vault.lock(); data.vault.unlock("123".toCharArray())
+            assertThrows(IllegalArgumentException::class.java) { data.vault.changePin(pin.toCharArray()) }
+        }
+    }
+    private fun legacyFixture(version: Int = 1, legacyPin: String? = null): Legacy {
         val root = temp.newFolder("legacy-${UUID.randomUUID()}")
         val recovery = Crypto.recoverySecret()
-        val vault = Vault(root, Device()).apply { create("123456".toCharArray(), recovery) }
+        val device = Device()
+        val vault = Vault(root, device).apply { create("123456".toCharArray(), recovery) }
         data class Header(val id: String, val recoverySalt: ByteArray, val wrapped: ByteArray)
         val header = decode(root.resolve("envelope.bin").readBytes()) {
             require(readInt() == 0x43564C31)
@@ -63,6 +74,15 @@ class LegacyCompatibilityTest {
         val recoveryBytes = Crypto.parseRecovery(recovery)
         val recoveryKey = Crypto.derive(recoveryBytes, header.recoverySalt, "recovery/${header.id}")
         val master = Crypto.open(recoveryKey, header.wrapped, context("recovery"))
+        if (legacyPin != null) {
+            val salt = Crypto.random(16)
+            val pinKey = Crypto.pinKey(legacyPin.toCharArray(), salt)
+            val wrapped = device.seal(Crypto.seal(pinKey, master, context("pin")), context("device"))
+            pinKey.fill(0)
+            root.resolve("envelope.bin").writeBytes(encode {
+                writeInt(0x43564C31); writeUTF(header.id); blob(salt); blob(wrapped); blob(header.recoverySalt); blob(header.wrapped)
+            })
+        }
         val id = UUID.randomUUID().toString()
         val plain = "legacy private content".toByteArray()
         val fileKey = Crypto.random(32)

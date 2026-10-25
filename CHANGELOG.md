@@ -1,5 +1,10 @@
 # Changes
 
+## 0.2.2 — PIN range and screenshots
+
+- New PINs use 3–9 digits during setup, PIN changes, recovery, and backup restore. Existing 10–12 digit PINs can still unlock their vault so upgrades preserve access; changing them requires the new range.
+- Screenshots are allowed throughout the app. Removed the secure-window flag and test-only screenshot overrides.
+
 ## 0.2.1 — Subfolders
 
 - Create folders inside the currently open folder, up to 32 levels, with the same child name allowed under different parents.

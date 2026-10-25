@@ -193,6 +193,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
         try { vault.unlock(pin.toCharArray(), forceRepair || settingsStore.current.automaticRetrieval); limiter.success() }
         catch (e: Exception) { if (e.message?.startsWith("Vault locked") != true) limiter.failure(); error("Unable to unlock. Check the PIN, use recovery, or try Unlock and repair.") }
         afterUnlock()
+        if (pin.length > 9) message("Your older PIN still works. Choose a new 3–9 digit PIN in Settings → Security.")
     }
     fun recover(secret: String, pin: String) = task("Recovering vault access…") {
         checkDelay()

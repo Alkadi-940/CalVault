@@ -3,7 +3,6 @@ package dev.calvault
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.view.WindowManager
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -115,14 +114,10 @@ class ViewerStateTest {
 
     private fun screenshot(name: String) {
         rule.waitForIdle()
-        rule.runOnIdle { rule.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-        try {
-            // Allow WindowManager's secure-layer update to reach the compositor before native capture.
-            if (name.startsWith("video-")) android.os.SystemClock.sleep(400)
-            rule.waitForIdle()
-            val image = if (name.startsWith("video-")) InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!! else rule.onRoot().captureToImage().asAndroidBitmap()
-            val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "qa-v020").also { it.mkdirs() }
-            File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { rule.runOnIdle { rule.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) } }
+        if (name.startsWith("video-")) android.os.SystemClock.sleep(400)
+        rule.waitForIdle()
+        val image = if (name.startsWith("video-")) InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()!! else rule.onRoot().captureToImage().asAndroidBitmap()
+        val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "qa-v020").also { it.mkdirs() }
+        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }

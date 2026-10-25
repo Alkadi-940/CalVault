@@ -1,12 +1,12 @@
 # Security and data-format notes
 
-Status: implemented preview design, including the v0.2.1 folder update; not an independently audited product.
+Status: implemented v0.2.2 preview design; not an independently audited product.
 
 ## Protection boundary
 
 CalVault encrypts file contents and sensitive catalog metadata in private app storage. The calculator appearance provides discretion. Other ordinary apps cannot access app-private storage under normal Android isolation. Object counts, encrypted lengths, and filesystem timing are not padded or concealed.
 
-An attacker controlling the OS, a rooted device, the unlocked application process, a malicious keyboard/accessibility service with granted access, or an external camera is outside the protection boundary. `FLAG_SECURE` remains set in production for all app screens, including the calculator; it cannot prevent every capture mechanism or OEM defect.
+An attacker controlling the OS, a rooted device, the unlocked application process, a malicious keyboard/accessibility service with granted access, or an external camera is outside the protection boundary. Screenshots are allowed on all app screens, including the vault and recovery screens. Captured or recorded content is outside vault encryption.
 
 ## Keys
 
@@ -16,6 +16,7 @@ An attacker controlling the OS, a rooted device, the unlocked application proces
 - Catalog encryption and software key envelopes use AES-256-GCM with fresh 96-bit nonces and 128-bit tags.
 - File and archive streams use Google's Tink `AesGcmHkdfStreaming`, configured with SHA-256, a 256-bit derived key, 1 MiB segments, and zero initial offset. The authenticated channel supports random-access playback without plaintext staging files.
 - PIN wrapping uses Argon2id version 19: 64 MiB memory, three iterations, four lanes, 16-byte random salt, and 32-byte output. Format version 1 fixes these parameters, so untrusted records cannot request arbitrary KDF allocations.
+- New PIN envelopes require 3–9 ASCII digits. Derivation also accepts existing 10–12 digit PINs for upgrade-compatible unlocking; setup, changes, recovery, and restore enforce the new range.
 - The PIN-encrypted master-key envelope is itself encrypted with a device-specific Android Keystore AES-256-GCM key. No separate PIN verifier is stored. Android hardware authentication does not validate the app's custom PIN; hardware backing depends on the device.
 - Recovery uses a random 256-bit secret rendered as nine groups of eight hexadecimal characters, including a four-byte SHA-256 checksum. A recovery subkey derived with HKDF wraps the master key independently of the device key. The secret is shown during setup and is not saved by the app.
 
@@ -60,4 +61,4 @@ Background and screen-off locking default on and can be configured independently
 
 Both Android backup rule formats exclude the app's data. Sensitive storage also uses the always-excluded no-backup directory. The manifest requests no Internet, broad media-library, All files access, camera, or microphone permission.
 
-Screenshots in the automated test suite use synthetic files and temporarily clear `FLAG_SECURE` inside test code only, then restore and assert the flag. Production code has no screenshot-protection toggle.
+Screenshots in the automated test suite use synthetic files and the same unrestricted capture policy as the production app. Tests do not change window capture flags.
