@@ -1,0 +1,37 @@
+[
+  {
+    "Name": "dev.calvault.core.AttemptLimiterTest",
+    "Tests": 1,
+    "Failures": 0,
+    "Skipped": 0,
+    "Seconds": 0.179
+  },
+  {
+    "Name": "dev.calvault.core.CalculatorTest",
+    "Tests": 2,
+    "Failures": 0,
+    "Skipped": 0,
+    "Seconds": 0.039
+  },
+  {
+    "Name": "dev.calvault.core.CryptoTest",
+    "Tests": 4,
+    "Failures": 0,
+    "Skipped": 0,
+    "Seconds": 0.225
+  },
+  {
+    "Name": "dev.calvault.core.LargeFileTest",
+    "Tests": 1,
+    "Failures": 0,
+    "Skipped": 0,
+    "Seconds": 51.211
+  },
+  {
+    "Name": "dev.calvault.core.VaultTest",
+    "Tests": 10,
+    "Failures": 0,
+    "Skipped": 0,
+    "Seconds": 6.918
+  }
+]
