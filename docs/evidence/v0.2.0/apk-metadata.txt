@@ -1,0 +1,4 @@
+package: name='dev.calvault' versionCode='3' versionName='0.2.0' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'29'
+targetSdkVersion:'36'
+application-label:'Calculator'

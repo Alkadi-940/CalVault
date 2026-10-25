@@ -51,12 +51,12 @@ class VaultDataSource(private val vault: Vault, private val id: String) : BaseDa
     }
 }
 
-fun decodeVaultPhoto(vault: Vault, id: String): Bitmap {
+fun decodeVaultPhoto(vault: Vault, id: String, maxDimension: Int = 2048): Bitmap {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     vault.openMedia(id).use { BitmapFactory.decodeStream(Channels.newInputStream(it), null, bounds) }
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "This image format cannot be previewed" }
     var sample = 1
-    while (bounds.outWidth / sample > 2048 || bounds.outHeight / sample > 2048) sample *= 2
+    while (bounds.outWidth / sample > maxDimension || bounds.outHeight / sample > maxDimension) sample *= 2
     return vault.openMedia(id).use {
         checkNotNull(BitmapFactory.decodeStream(Channels.newInputStream(it), null, BitmapFactory.Options().apply { inSampleSize = sample })) {
             "This image format cannot be previewed"

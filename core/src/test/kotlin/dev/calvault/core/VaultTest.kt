@@ -113,12 +113,12 @@ class VaultTest {
         assertThrows(Exception::class.java) { vault.unlock("123456".toCharArray()) }
         assertFalse(vault.unlocked)
     }
-    @Test fun orphanCiphertextReconcilesOnUnlock() {
+    @Test fun unidentifiedPartialIsPreservedByNonDestructiveRepair() {
         val (vault, _) = initialized()
         val orphan = temp.root.resolve("vault/objects/abandoned.part")
         orphan.parentFile.mkdirs(); orphan.writeBytes(ByteArray(20))
         vault.lock(); vault.unlock("001234".toCharArray())
-        assertFalse(orphan.exists())
+        assertTrue(orphan.exists())
     }
     @Test fun tamperedBlobFailsAuthenticationAndLostDeviceKeyCanRecover() {
         val (vault, recovery) = initialized()

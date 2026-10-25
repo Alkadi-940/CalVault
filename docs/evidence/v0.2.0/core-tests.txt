@@ -1,0 +1,7 @@
+dev.calvault.core.AttemptLimiterTest: tests=1, failures=0, errors=0, skipped=0
+dev.calvault.core.CalculatorTest: tests=2, failures=0, errors=0, skipped=0
+dev.calvault.core.CryptoTest: tests=4, failures=0, errors=0, skipped=0
+dev.calvault.core.LargeFileTest: tests=1, failures=0, errors=0, skipped=0
+dev.calvault.core.LegacyCompatibilityTest: tests=2, failures=0, errors=0, skipped=0
+dev.calvault.core.VaultFeaturesTest: tests=13, failures=0, errors=0, skipped=0
+dev.calvault.core.VaultTest: tests=10, failures=0, errors=0, skipped=0

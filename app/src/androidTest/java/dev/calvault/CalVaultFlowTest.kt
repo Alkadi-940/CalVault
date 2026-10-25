@@ -68,11 +68,19 @@ class CalVaultFlowTest {
         rule.waitUntil(30000) { !model.ui.value.busy && model.ui.value.items.size >= 2 }
         screenshot("vault")
         verifyVideoPlayback(video.id)
+        rule.onNodeWithText("All").assertDoesNotExist()
+        rule.onNodeWithText("New folder").performScrollTo().performClick()
+        rule.onNodeWithText("Folder name").performTextInput("Empty folder")
+        rule.onNodeWithText("Create", useUnmergedTree = true).performClick()
+        rule.waitUntil(10000) { !model.ui.value.busy && "Empty folder" in model.ui.value.folders }
+        rule.onNodeWithText("Personal").performScrollTo().performClick()
+        rule.onNodeWithText("Photos").assertIsDisplayed()
+        screenshot("folder")
         rule.onNodeWithText("A quiet afternoon.png").performScrollTo().performClick()
         rule.waitUntil(30000) { rule.onAllNodesWithContentDescription("A quiet afternoon.png").fetchSemanticsNodes().isNotEmpty() }
         screenshot("photo-viewer")
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithContentDescription("Security and backup").performClick()
+        rule.runOnIdle { model.openSettings() }
         screenshot("security")
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Lock vault").performClick()

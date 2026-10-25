@@ -1,8 +1,8 @@
 # CalVault
 
-A native Android calculator with a private, encrypted file vault. **v0.1.0 is an early Android preview**, intended for testing with copies of files while the remaining release checks are completed.
+A native Android calculator with a private, encrypted file vault. **v0.2.0 is an Android preview** with folder browsing, verified file moves, a recycle bin, media playlists/slideshows, themes, and recovery tools. See the [full change list](CHANGELOG.md).
 
-Download [CalVault-v0.1.0.apk](https://github.com/Alkadi-940/CalVault/releases/download/v0.1.0/CalVault-v0.1.0.apk) from the [v0.1.0 release](https://github.com/Alkadi-940/CalVault/releases/tag/v0.1.0). The APK is approximately 4 MB; its checksum is in [SHA256SUMS.txt](artifacts/SHA256SUMS.txt). It is an optimized, non-debuggable release build signed with this machine's local Android development key. Production signing is not configured. Back up your vault before replacing this preview with a differently signed production build, which Android cannot install as an ordinary update.
+Download [CalVault-v0.2.0.apk](https://github.com/Alkadi-940/CalVault/releases/download/v0.2.0/CalVault-v0.2.0.apk) from the [v0.2.0 release](https://github.com/Alkadi-940/CalVault/releases/tag/v0.2.0). Its checksum is in [SHA256SUMS.txt](artifacts/SHA256SUMS.txt). It is an optimized, non-debuggable build signed with the same local Android development key as v0.1.0, so it can upgrade that preview without uninstalling. Create a verified backup first. Production signing is not configured.
 
 On an Android 10 or newer phone, download and open the APK. If Android prompts, allow your browser or file manager to install it. The launcher name is **Calculator**. Create a PIN, save your recovery key separately, then enter your PIN and **hold `=`** to unlock.
 
@@ -11,14 +11,18 @@ On an Android 10 or newer phone, download and open the APK. If Android prompts, 
 - A working calculator with operator precedence, decimals, percent, backspace, and sign change.
 - A 6–12 digit PIN entrance: enter the digits and **hold `=`**. An ordinary tap on `=` calculates. An accessible unlock action is available in the menu.
 - First-run PIN and recovery-key setup, with confirmation of two recovery-key groups.
-- Device-only encrypted photos, videos, and arbitrary files, with an encrypted catalog, folders, search, renaming, selection, and deletion.
-- Verified imports using Android media/document pickers; originals are retained by default.
-- Explicit original removal for writable document providers, after verifying both the encrypted copy and that the source is unchanged. Other providers, including photo-picker sources, may require manual removal in the gallery or source app.
-- In-app sampled image previews with zoom and authenticated, seekable video playback. Unsupported formats can be exported.
-- Explicit export of decrypted copies to a selected destination.
+- Device-only encrypted photos, videos, and arbitrary files; folder-first browsing, per-folder filters, search, rename/move, multi-selection, sorting, and grid/list layouts.
+- Multi-file imports request original removal after full verification, with Android gallery consent, pending status, and retry controls. Providers can deny deletion; unfinished moves remain clearly marked.
+- Unhide to the original supported location or a selected folder, with verification before removal from the vault. No export-as-copy flow.
+- Manual recycle bin with file/folder restoration, selected permanent deletion, and Empty bin confirmation.
+- Encryption/Hidden import labels and configurable defaults. Both labels keep file contents encrypted.
+- Folder video playlists, repeat/shuffle, configurable double-tap seeking, fullscreen/rotation, image zoom and folder slideshows with timing/transitions/shuffle.
+- Customizable background/screen-off locking and encrypted context restoration after authentication, including media position and settings.
+- System/Light/Dark/AMOLED themes with preset or custom accent colors.
+- Non-destructive automatic/manual retrieval and retrieval of missing/damaged files from matching backups; device migration instructions in Settings.
 - Manual encrypted `.calvault` backups with read-back verification and recovery on a fresh installation.
 - PIN changes and recovery with a separately saved recovery key.
-- Automatic background/screen-off locking, protected windows, persistent attempt delays, and Android backup/transfer exclusions.
+- Protected windows, persistent attempt delays, and Android backup/transfer exclusions. PIN and separately saved recovery key are the only unlock paths; fingerprint access is not included.
 - No Internet permission, account, analytics, ads, or backend.
 
 The launcher label is **Calculator**. The welcome screen and documentation explain the vault. Android settings and installation records can still reveal the app.
@@ -51,20 +55,20 @@ The local development tools downloaded for this workspace are under the ignored 
 ## Use it
 
 1. Create a vault, choose a numeric PIN, and save the recovery key separately. Confirm the requested groups to finish setup.
-2. Tap **Add files**, choose media or documents, and unlock again after returning from the system picker. Import waits for authentication and reports which copies were verified.
-3. Open files inside CalVault. Use the file menu to rename, move to a named folder, export, or delete. Hold a file or use **Select file** for selection and batch deletion.
-4. Use **Security & backup → Create encrypted backup**. Select a destination, unlock again, and keep the app open while the archive is written and reread for verification.
+2. Create a folder, tap **Hide files**, choose an import mode, then select multiple media/documents. Authenticate again if your lock setting requires it. Approve Android's original-removal request when shown; check any pending-move warning.
+3. Open files inside their folder. Hold a file or use its menu to select it, rename/move, unhide, or move it to the recycle bin. Permanent deletion is available only inside the bin.
+4. Use **Settings → Migration → Create encrypted backup**. Select a destination and keep the app open while the archive is written and reread for verification.
 5. On a new installation, choose **Restore an encrypted backup**, select the archive, and enter its recovery key and a new PIN. This version restores only when no vault has been initialized.
 
-System picker excursions lock the vault. Imports, exports, and backup work proceed only after reauthentication. Leaving during a transfer cancels it safely; completed imports remain in the vault and unfinished selected items can be retried after unlocking. Process death forgets pending URI selections, so choose unfinished files again.
+By default, leaving for a system picker locks the vault; disable **Settings → Security → Lock when leaving the app** to keep the current session open while switching apps. A killed process always requires authentication. The encrypted bookmark restores browsing/media context after unlocking. Returned picker results can recover their saved destination/action; transfers interrupted by process death should be checked and unfinished files selected again.
 
-The recovery key restores access to surviving ciphertext. It cannot recreate deleted data without a backup. Uninstalling or clearing app data removes the local vault. Exported files and original copies are outside CalVault's encryption.
+Android controls original deletion and folder access. Read-only or unsupported providers can leave an original visible; CalVault does not claim the move succeeded in that case. The recovery key restores access to surviving ciphertext, not deleted bytes without a backup. Uninstalling or clearing app data removes the local vault. Unhidden files, external originals, and existing backups remain outside later vault deletion.
 
 ## Architecture
 
 `core/` contains calculator parsing, cryptography, encrypted storage, backup, recovery, and attempt-delay logic. `app/` contains Compose screens, Android Keystore integration, lifecycle locking, file-picker integration, and a Media3 data source.
 
-For this alpha, a small, atomically replaced **encrypted catalog** is the storage commit point instead of Room. Immutable encrypted blobs are promoted before the catalog update; deleted/uncommitted orphan blobs are reconciled on unlock. This keeps all sensitive catalog fields encrypted without a plaintext database or WAL. The catalog is capped at 10,000 items and 32 MiB; migrating to Room is an option if the collection/workload requires it.
+A small, atomically replaced **encrypted catalog** is the storage commit point instead of Room. Immutable encrypted blobs are promoted before the catalog update; authenticated per-file sidecars support non-destructive retrieval, and deletion markers suppress automatic resurrection. Sensitive catalog fields and navigation context are encrypted without a plaintext database or WAL. The catalog is capped at 10,000 items and 32 MiB.
 
 See [security and format notes](docs/SECURITY.md), the [implementation plan](docs/CalVault-implementation-plan.md), and [verification evidence](docs/VERIFICATION.md).
 

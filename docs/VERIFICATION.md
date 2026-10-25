@@ -2,6 +2,23 @@
 
 Implementation verification on 2026-10-25. This record distinguishes executed checks from remaining release work.
 
+## v0.2.0 feature verification
+
+- **33 core tests passed, zero failures/skips**, including the 2 GiB + 123 byte streaming regression. Added independent legacy v1 catalog/archive fixtures, folder/bin state, encrypted mode labels/source metadata bounds, authenticated recovery, missing-file handling, backup retrieval, and shuffle-cycle coverage.
+- Existing synthetic three-file v0.1.0 vaults upgraded on Android 10/API 29 and Android 16/API 36 with real Android Keystore access. Files retained their exact encrypted blob bytes, and a legacy catalog snapshot was preserved. The legacy test is opt-in (`-e legacyFixture true`) and must run before clearing that fixture.
+- Onboarding/PIN recovery/backup restore and encrypted-video playback/seek passed on both platforms.
+- Both platforms passed actual MediaStore original-removal consent and unhide to the original album; multi-document moves with granted URI access; unhide/read-back verification; and an explicitly read-only source that stays pending with its original intact. A test-only DocumentsProvider and fixture-owning Activity are packaged only in the test APK.
+- Both platforms passed folder/file recycle-bin restoration, confirmed permanent deletion, three-track shuffle uniqueness, repeat-current, double-tap seeking in both directions, player rotation, optional background locking, and encrypted folder/selection bookmark restoration.
+- Both platforms passed folder slideshow timing/shuffle, image rotation, theme rendering, and the seven settings sections. Synthetic screenshots are in `docs/screenshots/v0.2.0/`.
+- Both platforms restored the paused video's saved position after an actual app force-stop. Recreated models also resumed returned import/unhide picker results using encrypted saved action context.
+- Fingerprint functionality, permission, UI, key wrappers, and tests were removed at the user's request. No biometric unlock path is present in this release.
+- Debug lint reports no issues. Optimized release build and release vital lint pass. No new external dependency was added for these features.
+- The exact signed v0.2.0 APK (version code 3) was installed and unlocked through calculator input on both API 29 and 36 after R8 optimization, restoring the saved video viewer. Its signature matches v0.1.0, ZIP alignment meets 16 KiB checks, and its manifest is non-debuggable with no Internet, biometric, or broad storage permission. The final checksum is recorded in `artifacts/SHA256SUMS.txt`.
+
+Raw feature logs are in `docs/evidence/v0.2.0/`. The earlier v0.1.0 evidence below remains historical; its original-retention/export behavior was replaced by the v0.2.0 move/unhide flow.
+
+For a fresh dedicated emulator, run the onboarding test first, then FeatureIntegrationTest and ViewerStateTest's photoSlideshowRotationAndAppearance method. For a real process restart, run prepareRestartBookmark with `-e restartPhase prepare`, force-stop the app, then run verifyRestartBookmark with `-e restartPhase verify`. Never clear a personal vault to run tests. The staged fixture tests use synthetic files only.
+
 ## Executed
 
 - Gradle 8.13, Android Gradle Plugin 8.13.2, Kotlin 2.2.21, JDK 21, compile/target SDK 36, minimum SDK 29.

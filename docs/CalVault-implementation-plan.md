@@ -1,6 +1,6 @@
 # CalVault: Android product and implementation plan
 
-Status: initial planning snapshot. Implementation has since started; see ../README.md and VERIFICATION.md for current status.
+Status: historical initial planning snapshot. The v0.2.0 implementation supersedes its import, export, deletion, and media scope; see [README](../README.md), [changes](../CHANGELOG.md), and [verification](VERIFICATION.md) for current behavior.
 Date: 2026-10-25
 
 ## Decision and intended outcome
