@@ -20,7 +20,7 @@ data class VaultItem(
 )
 
 data class RepairReport(val recovered: Int = 0, val missing: Int = 0, val damaged: Int = 0)
-data class TrashedFolder(val id: String, val name: String, val deletedAt: Long)
+data class TrashedFolder(val id: String, val name: String, val deletedAt: Long, val paths: List<String> = listOf(name))
 
 /** A shuffled cycle starts with the current item and visits every other item once. */
 object PlaylistOrder {

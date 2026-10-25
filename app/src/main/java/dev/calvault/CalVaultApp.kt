@@ -26,6 +26,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.calvault.core.StorageMode
+import dev.calvault.core.FolderPath
 import java.time.LocalDate
 
 internal val Ink = Color(0xFF111318)
@@ -85,7 +86,7 @@ private class MoveFilePicker : ActivityResultContracts.OpenMultipleDocuments() {
                         Screen.CALCULATOR -> CalculatorScreen(state, model)
                         Screen.RECOVER, Screen.RESTORE -> RecoveryScreen(state.screen == Screen.RESTORE, state.busy, model::back,
                             if (state.screen == Screen.RESTORE) model::restore else model::recover)
-                        Screen.VAULT -> VaultBrowser(state, settings, model, { adding = true }, { newFolder = true })
+                        Screen.VAULT -> key(state.folder) { VaultBrowser(state, settings, model, { adding = true }, { newFolder = true }) }
                         Screen.TRASH -> RecycleBinScreen(state, settings, model)
                         Screen.SETTINGS -> SettingsScreen(state, settings, model,
                             onBackup = { model.saveBookmarkNow(); backup.launch("CalVault-${LocalDate.now()}.calvault") },
@@ -112,8 +113,8 @@ private class MoveFilePicker : ActivityResultContracts.OpenMultipleDocuments() {
                     Text("Hide files", style = MaterialTheme.typography.headlineSmall)
                     Text("Verified files are moved into this vault. Android may ask you to confirm removal of the originals.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Box {
-                        OutlinedButton(onClick = { folderMenu = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Folder, null); Spacer(Modifier.width(8.dp)); Text(folder.ifBlank { "Choose folder" }) }
-                        DropdownMenu(folderMenu, { folderMenu = false }) { state.folders.forEach { name -> DropdownMenuItem(text = { Text(name) }, onClick = { folder = name; folderMenu = false }) } }
+                        OutlinedButton(onClick = { folderMenu = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Folder, null); Spacer(Modifier.width(8.dp)); Text(folder.takeIf { it.isNotBlank() }?.let(FolderPath::display) ?: "Choose folder") }
+                        DropdownMenu(folderMenu, { folderMenu = false }) { state.folders.sortedBy(FolderPath::display).forEach { name -> DropdownMenuItem(text = { Text(FolderPath.display(name)) }, onClick = { folder = name; folderMenu = false }) } }
                     }
                     if (state.folders.isEmpty()) TextButton(onClick = { adding = false; newFolder = true }) { Text("Create a destination folder") }
                     if (settings.importPolicy == ImportPolicy.ASK) {
@@ -138,7 +139,10 @@ private class MoveFilePicker : ActivityResultContracts.OpenMultipleDocuments() {
         if (newFolder && vaultScreen(state.screen)) {
             var name by remember { mutableStateOf("") }
             AlertDialog(onDismissRequest = { newFolder = false }, title = { Text("Create folder") },
-                text = { OutlinedTextField(name, { name = it.take(120) }, label = { Text("Folder name") }, singleLine = true) },
+                text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Inside: ${state.folder?.let(FolderPath::display) ?: "My vault"}", maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    OutlinedTextField(name, { name = it.take(120) }, label = { Text("Folder name") }, singleLine = true)
+                } },
                 confirmButton = { TextButton(onClick = { newFolder = false; model.createFolder(name) }, enabled = name.isNotBlank()) { Text("Create") } },
                 dismissButton = { TextButton(onClick = { newFolder = false }) { Text("Cancel") } })
         }

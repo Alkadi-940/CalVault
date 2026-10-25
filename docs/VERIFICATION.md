@@ -2,6 +2,15 @@
 
 Implementation verification on 2026-10-25. This record distinguishes executed checks from remaining release work.
 
+## Subfolder update (v0.2.1)
+
+- 38 core tests passed; the existing opt-in large streaming test was skipped because encryption/streaming code did not change. Five new hierarchy tests cover sibling names, the depth bound, parent rename, empty descendants, recursive bin/restore/permanent deletion, backup restore, and recovery of long nested paths. An independent version 2 fixture checks migration and literal slash names alongside version 1 compatibility tests.
+- Android 10/API 29 and Android 16/API 36 passed actual nested-folder creation, immediate-child browsing, breadcrumbs/parent navigation, subtree rename, recycle-bin restoration including empty descendants, authenticated location resume, and landscape layout. Tests upgraded the retained synthetic v0.2.0 vaults.
+- The Android 10 AOSP test image booted with an empty `dalvik.vm.heapgrowthlimit` (ART defaulted to 16 MiB). Its test runtime was configured to 256 MiB and restarted before the passing run; no app cryptography settings were weakened.
+- Debug lint and the optimized release build passed. The signed local APK uses version code 4 and the existing preview signing identity. New backups preserve the hierarchy in catalog format 3 and need this app version or newer.
+- The exact signed APK was installed and unlocked through the calculator on both emulators, restoring the nested folder and its file after R8 optimization.
+- Evidence: `docs/evidence/subfolders/`; synthetic screenshots: `docs/screenshots/subfolders/`.
+
 ## v0.2.0 feature verification
 
 - **33 core tests passed, zero failures/skips**, including the 2 GiB + 123 byte streaming regression. Added independent legacy v1 catalog/archive fixtures, folder/bin state, encrypted mode labels/source metadata bounds, authenticated recovery, missing-file handling, backup retrieval, and shuffle-cycle coverage.

@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.calvault.core.FolderPath
 
 @Composable internal fun SettingsScreen(state: UiState, value: AppSettings, model: VaultViewModel, onBackup: () -> Unit, onRetrieve: () -> Unit) {
     var newPin by remember { mutableStateOf("") }
@@ -58,7 +59,7 @@ import androidx.compose.ui.unit.dp
                         Text("Android or a source provider can require permission or deny deletion. Such files are not reported as hidden; their verified vault copies remain safe until you complete the move.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (pending.isNotEmpty()) {
                             Button(onClick = { model.retryRemoval(pending.map { it.id }.toSet()) }, Modifier.fillMaxWidth()) { Text("Retry original removal") }
-                            pending.take(10).forEach { Text("${it.folder} / ${it.name}", style = MaterialTheme.typography.bodySmall) }
+                            pending.take(10).forEach { Text("${FolderPath.display(it.folder)} / ${it.name}", style = MaterialTheme.typography.bodySmall) }
                         }
                         HorizontalDivider(); Text("Recycle bin", style = MaterialTheme.typography.titleLarge)
                         Text("${state.trash.size} files · ${formatSize(state.trash.sumOf { it.size })}")

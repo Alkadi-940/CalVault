@@ -1,8 +1,10 @@
 # CalVault
 
-A native Android calculator with a private, encrypted file vault. **v0.2.0 is an Android preview** with folder browsing, verified file moves, a recycle bin, media playlists/slideshows, themes, and recovery tools. See the [full change list](CHANGELOG.md).
+A native Android calculator with a private, encrypted file vault. **v0.2.1 is an Android preview** with nested folders, verified file moves, a recycle bin, media playlists/slideshows, themes, and recovery tools. See the [full change list](CHANGELOG.md).
 
-Download [CalVault-v0.2.0.apk](https://github.com/Alkadi-940/CalVault/releases/download/v0.2.0/CalVault-v0.2.0.apk) from the [v0.2.0 release](https://github.com/Alkadi-940/CalVault/releases/tag/v0.2.0). Its checksum is in [SHA256SUMS.txt](artifacts/SHA256SUMS.txt). It is an optimized, non-debuggable build signed with the same local Android development key as v0.1.0, so it can upgrade that preview without uninstalling. Create a verified backup first. Production signing is not configured.
+Open a folder and tap the **New folder** icon to create a subfolder. Breadcrumbs and Back navigate the hierarchy; parent rename, recycle-bin restoration, and backups preserve the complete subtree.
+
+Download [CalVault-v0.2.1.apk](https://github.com/Alkadi-940/CalVault/releases/download/v0.2.1/CalVault-v0.2.1.apk) from the [v0.2.1 release](https://github.com/Alkadi-940/CalVault/releases/tag/v0.2.1). Its checksum is in [SHA256SUMS.txt](artifacts/SHA256SUMS.txt). It is an optimized, non-debuggable build signed with the same local Android development key as v0.1.0 and v0.2.0, so it can upgrade those previews without uninstalling. Create a verified backup first. Production signing is not configured.
 
 On an Android 10 or newer phone, download and open the APK. If Android prompts, allow your browser or file manager to install it. The launcher name is **Calculator**. Create a PIN, save your recovery key separately, then enter your PIN and **hold `=`** to unlock.
 

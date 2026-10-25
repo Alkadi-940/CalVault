@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 private data class StoredItem(val item: VaultItem, val wrappedKey: ByteArray, val digest: ByteArray, val revision: Long = 0)
-private data class Catalog(val records: List<StoredItem>, val folders: List<String>, val revision: Long = 0, val formatVersion: Int = 2, val deletedFolders: List<TrashedFolder> = emptyList())
+private data class Catalog(val records: List<StoredItem>, val folders: List<String>, val revision: Long = 0, val formatVersion: Int = 3, val deletedFolders: List<TrashedFolder> = emptyList())
 private data class Envelope(
     val id: String, val pinSalt: ByteArray, val deviceWrapped: ByteArray,
     val recoverySalt: ByteArray, val recoveryWrapped: ByteArray,
@@ -42,36 +42,39 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
     @Synchronized fun trashFolders(): List<TrashedFolder> = current().deletedFolders.toList()
     val identity: String get() = readEnvelope().id
 
-    @Synchronized fun createFolder(name: String) {
-        validFolderName(name)
+    @Synchronized fun createFolder(name: String, parent: String? = null) {
         val s = current()
-        require(s.folders.none { it.equals(name, true) }) { "A folder with this name already exists" }
-        commit(s, s.records, s.folders + name)
+        require(parent == null || parent in s.folders) { "Parent folder no longer exists" }
+        val path = FolderPath.child(parent, name)
+        require(s.folders.none { it.equals(path, true) }) { "A folder with this name already exists here" }
+        commit(s, s.records, s.folders + path)
     }
     @Synchronized fun renameFolder(old: String, name: String) {
-        validFolderName(name)
         val s = current()
         require(old in s.folders)
-        require(s.folders.none { it != old && it.equals(name, true) }) { "A folder with this name already exists" }
-        val records = s.records.map { if (it.item.folder == old && it.item.deletedAt == 0L) it.copy(item = it.item.copy(folder = name), revision = s.revision + 1) else it }
-        records.filter { it.item.folder == name }.forEach { writeRecovery(s, it) }
-        commit(s, records, s.folders.map { if (it == old) name else it })
+        val replacement = FolderPath.child(FolderPath.parent(old), name)
+        require(s.folders.none { !FolderPath.within(it, old) && it.equals(replacement, true) }) { "A folder with this name already exists here" }
+        val folders = s.folders.map { FolderPath.renamed(it, old, replacement) }.also { it.forEach(FolderPath::validate) }
+        val records = s.records.map { if (FolderPath.within(it.item.folder, old) && it.item.deletedAt == 0L) it.copy(item = it.item.copy(folder = FolderPath.renamed(it.item.folder, old, replacement)), revision = s.revision + 1) else it }
+        records.filter { it.revision == s.revision + 1 }.forEach { writeRecovery(s, it) }
+        commit(s, records, folders)
     }
     @Synchronized fun deleteFolder(name: String) {
         val s = current()
         require(name in s.folders) { "Folder no longer exists" }
         val now = System.currentTimeMillis().coerceAtLeast(1)
-        val deleted = TrashedFolder(UUID.randomUUID().toString(), name, now)
-        val records = s.records.map { if (it.item.folder == name && it.item.deletedAt == 0L) it.copy(item = it.item.copy(deletedAt = now, trashFolderId = deleted.id), revision = s.revision + 1) else it }
-        records.filter { it.item.folder == name }.forEach { writeRecovery(s, it) }
-        commit(s, records, s.folders - name, s.deletedFolders + deleted)
+        val subtree = s.folders.filter { FolderPath.within(it, name) }
+        val deleted = TrashedFolder(UUID.randomUUID().toString(), name, now, subtree)
+        val records = s.records.map { if (FolderPath.within(it.item.folder, name) && it.item.deletedAt == 0L) it.copy(item = it.item.copy(deletedAt = now, trashFolderId = deleted.id), revision = s.revision + 1) else it }
+        records.filter { it.item.trashFolderId == deleted.id }.forEach { writeRecovery(s, it) }
+        commit(s, records, s.folders - subtree.toSet(), s.deletedFolders + deleted)
     }
     @Synchronized fun restoreFolder(id: String) {
         val s = current()
         val folder = s.deletedFolders.firstOrNull { it.id == id } ?: error("Folder is no longer in the recycle bin")
         val records = s.records.map { if (it.item.trashFolderId == folder.id) it.copy(item = it.item.copy(deletedAt = 0, trashFolderId = ""), revision = s.revision + 1) else it }
-        records.filter { it.item.folder == folder.name && it.item.deletedAt == 0L }.forEach { writeRecovery(s, it) }
-        commit(s, records, (s.folders + folder.name).distinct(), s.deletedFolders.filterNot { it.id == id })
+        records.filter { it.revision == s.revision + 1 }.forEach { writeRecovery(s, it) }
+        commit(s, records, (s.folders + folder.paths).distinct(), s.deletedFolders.filterNot { it.id == id })
     }
     @Synchronized fun permanentlyDeleteFolder(id: String) {
         val s = current()
@@ -544,9 +547,10 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
     }
     private fun objectFile(id: String): File { validId(id); return File(objects, "$id.cvf") }
     private fun commit(s: Session, records: List<StoredItem>, folders: List<String> = s.folders, deletedFolders: List<TrashedFolder> = s.deletedFolders) {
-        saveCatalog(s, records, folders, deletedFolders)
+        val expanded = FolderPath.expand(folders)
+        saveCatalog(s, records, expanded, deletedFolders)
         s.records = records
-        s.folders = folders
+        s.folders = expanded
         s.deletedFolders = deletedFolders
         s.revision++
     }
@@ -554,9 +558,9 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
         s.check()
         require(records.size <= MAX_ITEMS && folders.size <= MAX_ITEMS && deletedFolders.size <= MAX_ITEMS) { "Vault catalog limit reached" }
         val plain = encode {
-            writeInt(2); writeLong(s.revision + 1)
+            writeInt(3); writeLong(s.revision + 1)
             writeInt(folders.size); folders.forEach { writeUTF(it) }
-            writeInt(deletedFolders.size); deletedFolders.forEach { writeUTF(it.id); writeUTF(it.name); writeLong(it.deletedAt) }
+            writeInt(deletedFolders.size); deletedFolders.forEach { writeUTF(it.id); writeUTF(it.name); writeLong(it.deletedAt); writeInt(it.paths.size); it.paths.forEach(::writeUTF) }
             writeInt(records.size); records.forEach { writeRecord(it) }
         }
         require(plain.size < MAX_CATALOG - 28) { "Vault catalog is full" }
@@ -612,15 +616,22 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
         return try {
             decode(plain) {
                 val version = readInt()
-                require(version in 1..2) { "Unsupported catalog version" }
-                val revision = if (version == 2) readLong().also { require(it in 0 until Long.MAX_VALUE) } else 0
-                val folders = if (version == 2) {
+                require(version in 1..3) { "Unsupported catalog version" }
+                val revision = if (version >= 2) readLong().also { require(it in 0 until Long.MAX_VALUE) } else 0
+                val folders = if (version >= 2) {
                     val count = readInt().also { require(it in 0..MAX_ITEMS) }
                     List(count) { readUTF().also(::validFolderName) }.also { require(it.distinct().size == it.size) }
                 } else emptyList()
-                val deletedFolders = if (version == 2) {
+                val deletedFolders = if (version >= 2) {
                     val count = readInt().also { require(it in 0..MAX_ITEMS) }
-                    List(count) { TrashedFolder(readUTF().also(::validId), readUTF().also(::validFolderName), readLong().also { require(it > 0) }) }
+                    List(count) {
+                        val id = readUTF().also(::validId)
+                        val path = readUTF().also(::validFolderName)
+                        val deleted = readLong().also { require(it > 0) }
+                        val paths = if (version >= 3) List(readInt().also { require(it in 1..MAX_ITEMS) }) { readUTF().also(::validFolderName) } else listOf(path)
+                        require(path in paths && paths.distinct().size == paths.size && paths.all { FolderPath.within(it, path) })
+                        TrashedFolder(id, path, deleted, paths)
+                    }
                 } else emptyList()
                 val count = readInt()
                 require(count in 0..MAX_ITEMS) { "Invalid catalog count" }
@@ -634,7 +645,7 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
     }
     private fun writeRecovery(s: Session, stored: StoredItem) {
         s.check()
-        val plain = encode { writeInt(2); writeRecord(stored) }
+        val plain = encode { writeInt(3); writeRecord(stored) }
         val key = subkey(s, "recovery-records")
         val encrypted = try { Crypto.seal(key, plain, aad(s.envelope.id, "${stored.item.id}/recovery")) }
         finally { key.fill(0); plain.fill(0) }
@@ -644,9 +655,9 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
     private fun readRecovery(s: Session, id: String): StoredItem {
         validId(id)
         val key = subkey(s, "recovery-records")
-        val plain = try { Crypto.open(key, File(objects, "$id.meta").readBounded(65564), aad(s.envelope.id, "$id/recovery")) }
+        val plain = try { Crypto.open(key, File(objects, "$id.meta").readBounded(128 * 1024), aad(s.envelope.id, "$id/recovery")) }
         finally { key.fill(0) }
-        return try { decode(plain) { require(readInt() == 2); readRecord(2).also { require(it.item.id == id) } } }
+        return try { decode(plain) { val version = readInt(); require(version in 2..3); readRecord(version).also { require(it.item.id == id) } } }
         finally { plain.fill(0) }
     }
     private fun loadSession(envelope: Envelope, master: ByteArray, automaticRepair: Boolean): Session {
@@ -661,7 +672,7 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
             val s = Session(envelope, master, loaded?.records.orEmpty(), loaded?.folders.orEmpty(), loaded?.revision ?: 0, loaded?.deletedFolders.orEmpty())
             val result = reconcile(s, automaticRepair)
             check(loaded != null || result.recovered > 0) { "No usable recovery records. Restore your encrypted backup." }
-            if (fromFallback || loaded?.formatVersion == 1 || result.recovered > 0 || s.records != loaded?.records || s.folders != loaded.folders || s.deletedFolders != loaded.deletedFolders) commit(s, s.records, s.folders)
+            if (fromFallback || loaded?.formatVersion != 3 || result.recovered > 0 || s.records != loaded.records || s.folders != loaded.folders || s.deletedFolders != loaded.deletedFolders) commit(s, s.records, s.folders)
             lastRepair = result
             return s
         } catch (e: Exception) { master.fill(0); throw e }
@@ -704,7 +715,7 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
             } catch (e: Exception) { s.check(); damaged++ }
         }
         s.records = records.values.toList()
-        s.folders = (s.folders + s.records.filter { it.item.deletedAt == 0L }.map { it.item.folder }).distinct()
+        s.folders = FolderPath.expand(s.folders + s.records.filter { it.item.deletedAt == 0L }.map { it.item.folder })
         for (stored in s.records) {
             if (stored.item.id !in tombstones && !File(objects, "${stored.item.id}.meta").exists()) runCatching { writeRecovery(s, stored) }.onFailure { s.check(); damaged++ }
         }
@@ -779,7 +790,7 @@ class Vault(private val root: File, private val device: DeviceKey, private val s
         private fun aad(id: String, purpose: String) = Crypto.context("CalVault-v1", id, purpose)
         private fun validId(id: String) { require(id.matches(Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}"))) { "Invalid object ID" } }
         private fun validName(name: String) { require(name.isNotBlank() && name.length <= 240 && name.none { it == '\u0000' || it == '/' || it == '\\' }) { "Use a filename of 1–240 characters without slashes" } }
-        private fun validFolder(folder: String) { require(folder.length <= 120 && folder.none { it.isISOControl() }) { "Folder name is too long" } }
-        private fun validFolderName(folder: String) { validFolder(folder); require(folder.isNotBlank()) { "Enter a folder name" } }
+        private fun validFolder(folder: String) { if (folder.isNotBlank()) FolderPath.validate(folder) else require(folder.isEmpty()) { "Enter a folder name" } }
+        private fun validFolderName(folder: String) = FolderPath.validate(folder)
     }
 }

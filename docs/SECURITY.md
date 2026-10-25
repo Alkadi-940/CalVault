@@ -1,6 +1,6 @@
 # Security and data-format notes
 
-Status: implemented v0.2.0 preview design; not an independently audited product.
+Status: implemented preview design, including the v0.2.1 folder update; not an independently audited product.
 
 ## Protection boundary
 
@@ -26,13 +26,15 @@ A short numeric PIN has limited entropy. The Keystore layer adds device binding;
 All vault files live under `Context.noBackupFilesDir/vault`:
 
 - `envelope.bin`: format magic/version, random vault ID, fixed-length salt fields, device-wrapped PIN envelope, and recovery envelope.
-- `catalog.enc`: encrypted catalog containing names, MIME types, folders, sizes, timestamps, mode labels, source locations/removal status, recycle-bin membership, encrypted object keys, and SHA-256 digests. Version 2 reads version 1 catalogs and preserves a legacy snapshot.
+- `catalog.enc`: encrypted catalog containing names, MIME types, folders, sizes, timestamps, mode labels, source locations/removal status, recycle-bin membership, encrypted object keys, and SHA-256 digests. Version 3 adds nested folder paths and deleted-subtree membership; versions 1/2 remain readable and a version 1 snapshot is preserved during migration.
 - `catalog.previous`, `catalog.v1.snapshot`, and damaged catalog snapshots: encrypted recovery evidence, retained rather than discarded by repair.
 - `navigation.enc`: separately authenticated encrypted browsing/media/picker context. No saved PIN or recovery-key entry. Bounded to 2 MiB of plaintext to accommodate large selections/playlists.
 - `objects/<random-UUID>.cvf`: authenticated encrypted file streams. `.part` files contain encrypted staging data only.
 - `objects/<random-UUID>.meta`: independently authenticated encrypted per-file recovery metadata and wrapped key. `.gone` and `.foldergone` markers suppress automatic recreation of explicitly removed objects/folders.
 
 Associated data binds ciphertext to its format context, vault ID, object ID, and purpose. Sensitive filenames and folder names are not included in public associated data.
+
+Nested folders are logical metadata paths with a separator forbidden in legacy flat names, never raw filesystem paths. Folder names are bounded to 120 characters per component and 32 levels. Renaming a parent rewrites active descendant metadata; recycling a parent groups the subtree and preserves empty descendants. Blob paths remain random UUIDs and ciphertext is not rewritten by folder migration. Recovery records use version 3 for new writes and still read version 2 records.
 
 Import writes encrypted staging data and computes a source digest, then completely decrypts/authenticates and compares the staged file before promotion and catalog commit. Both Encryption and Hidden labels use the same authenticated encryption. Adding files authorizes a move: a source must still match the digest and a complete authenticated vault copy must exist before deletion is attempted. Android directory entries are synced before source removal. Gallery deletion can require Android consent; read-only/denied providers leave the item pending with its verified vault copy retained. Providers cannot offer an atomic compare-and-delete operation, so the change check is best effort.
 

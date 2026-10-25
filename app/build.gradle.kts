@@ -10,10 +10,10 @@ android {
         applicationId = "dev.calvault"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.0"
+        versionCode = 4
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        testInstrumentationRunnerArguments["class"] = "dev.calvault.CalVaultFlowTest,dev.calvault.FeatureIntegrationTest,dev.calvault.ViewerStateTest"
+        testInstrumentationRunnerArguments["class"] = "dev.calvault.CalVaultFlowTest,dev.calvault.FeatureIntegrationTest,dev.calvault.ViewerStateTest,dev.calvault.SubfolderFlowTest"
     }
     buildTypes {
         release {

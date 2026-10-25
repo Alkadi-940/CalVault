@@ -38,6 +38,7 @@ import java.util.Date
     var unhideIds by remember { mutableStateOf<Set<String>?>(null) }
     var details by remember { mutableStateOf<VaultItem?>(null) }
     var sortMenu by remember { mutableStateOf(false) }
+    val children = state.folders.filter { FolderPath.parent(it) == state.folder && FolderPath.name(it).contains(state.search, true) }.sortedBy { FolderPath.name(it).lowercase() }
     val folderItems = state.items.filter { it.folder == state.folder }
     val visible = model.sortedItems(folderItems.filter { item -> item.name.contains(state.search, true) && when (state.category) {
         "Photos" -> item.mime.startsWith("image/")
@@ -49,13 +50,14 @@ import java.util.Date
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (state.folder != null) IconButton(onClick = model::back) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to folders") }
-            Text(if (state.selected.isNotEmpty()) "${state.selected.size} selected" else state.folder ?: "CALVAULT", Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+            Text(if (state.selected.isNotEmpty()) "${state.selected.size} selected" else state.folder?.let(FolderPath::name) ?: "CALVAULT", Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
             if (state.selected.isNotEmpty()) {
                 IconButton(onClick = { model.selectAll(visible.map { it.id }) }) { Icon(Icons.Outlined.SelectAll, "Select all") }
                 IconButton(onClick = { unhideIds = state.selected }) { Icon(Icons.Outlined.Visibility, "Unhide selected") }
                 IconButton(onClick = { deleteIds = state.selected }) { Icon(Icons.Outlined.DeleteOutline, "Move selected to recycle bin") }
                 IconButton(onClick = model::clearSelection) { Icon(Icons.Outlined.Close, "Cancel selection") }
             } else {
+                if (state.folder != null) IconButton(onClick = onCreateFolder) { Icon(Icons.Outlined.CreateNewFolder, "New folder") }
                 IconButton(onClick = { model.openTrashFolder(null) }) { Icon(Icons.Outlined.DeleteOutline, "Recycle bin") }
                 IconButton(onClick = { model.openSettings() }) { Icon(Icons.Outlined.Settings, "Settings") }
                 IconButton(onClick = model::lock) { Icon(Icons.Outlined.Lock, "Lock vault") }
@@ -81,26 +83,8 @@ import java.util.Date
                             }
                         }
                     }
-                    items(state.folders.filter { it.contains(state.search, true) }.sorted(), key = { it }) { name ->
-                        var menu by remember { mutableStateOf(false) }
-                        val contents = state.items.filter { it.folder == name }
-                        Surface(onClick = { model.openFolder(name) }, shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Column(Modifier.heightIn(min = 162.dp).padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.Folder, null, Modifier.size(36.dp).weight(1f, false), tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.weight(1f))
-                                    Box {
-                                        IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.MoreVert, "Actions for folder $name") }
-                                        DropdownMenu(menu, { menu = false }) {
-                                            DropdownMenuItem(text = { Text("Rename folder") }, onClick = { menu = false; renameFolder = name })
-                                            DropdownMenuItem(text = { Text("Move folder to recycle bin") }, onClick = { menu = false; deleteFolder = name })
-                                        }
-                                    }
-                                }
-                                Text(name, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text("${contents.size} files · ${formatSize(contents.sumOf { it.size })}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+                    items(children, key = { it }) { path ->
+                        FolderCard(path, state, true, { model.openFolder(path) }, { renameFolder = path }, { deleteFolder = path })
                     }
                     if (state.folders.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyFiles("Create your first folder", "Keep photos, videos, and documents together in folders.") }
                 }
@@ -108,6 +92,13 @@ import java.util.Date
             }
         } else {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { model.openFolder(null) }) { Text("My vault") }
+                    FolderPath.ancestors(state.folder).forEach { ancestor ->
+                        Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { model.openFolder(ancestor) }) { Text(FolderPath.name(ancestor)) }
+                    }
+                }
                 Text("${folderItems.size} files · ${formatSize(folderItems.sumOf { it.size })}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(state.search, model::setSearch, Modifier.fillMaxWidth(), placeholder = { Text("Search this folder") }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = RoundedCornerShape(18.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -125,17 +116,19 @@ import java.util.Date
                 if (state.category == "Pending" && visible.isNotEmpty()) TextButton(onClick = { model.retryRemoval(visible.map { it.id }.toSet()) }) { Text("Retry original removal for these files") }
             }
             Box(Modifier.weight(1f)) {
-                if (visible.isEmpty()) EmptyFiles("Nothing here yet", if (state.search.isNotBlank()) "Try a different search or filter." else "Add files to this folder.")
+                if (visible.isEmpty() && children.isEmpty()) EmptyFiles("Nothing here yet", if (state.search.isNotBlank()) "Try a different search or filter." else "Add files or create a subfolder here.")
                 else if (settings.grid) {
-                    val grid = rememberLazyGridState(state.scrollIndex.coerceAtMost(visible.lastIndex.coerceAtLeast(0)), state.scrollOffset)
+                    val grid = rememberLazyGridState(state.scrollIndex.coerceAtMost((visible.size + children.size - 1).coerceAtLeast(0)), state.scrollOffset)
                     LaunchedEffect(grid) { snapshotFlow { grid.firstVisibleItemIndex to grid.firstVisibleItemScrollOffset }.collect { model.saveScroll(it.first, it.second) } }
                     LazyVerticalGrid(GridCells.Adaptive(140.dp), Modifier.fillMaxSize(), state = grid, contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(children, key = { "folder:$it" }) { path -> FolderCard(path, state, true, { model.openFolder(path) }, { renameFolder = path }, { deleteFolder = path }) }
                         items(visible, key = { it.id }) { item -> FileTile(item, item.id in state.selected, true, model, onClick = { if (state.selected.isEmpty()) model.view(item) else model.select(item.id) }, onRename = { edit = item }, onDelete = { deleteIds = setOf(item.id) }, onUnhide = { unhideIds = setOf(item.id) }, onDetails = { details = item }) }
                     }
                 } else {
-                    val list = androidx.compose.foundation.lazy.rememberLazyListState(state.scrollIndex.coerceAtMost(visible.lastIndex.coerceAtLeast(0)), state.scrollOffset)
+                    val list = androidx.compose.foundation.lazy.rememberLazyListState(state.scrollIndex.coerceAtMost((visible.size + children.size - 1).coerceAtLeast(0)), state.scrollOffset)
                     LaunchedEffect(list) { snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }.collect { model.saveScroll(it.first, it.second) } }
                     LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(children, key = { "folder:$it" }) { path -> FolderCard(path, state, false, { model.openFolder(path) }, { renameFolder = path }, { deleteFolder = path }) }
                         items(visible, key = { it.id }) { item -> FileTile(item, item.id in state.selected, false, model, onClick = { if (state.selected.isEmpty()) model.view(item) else model.select(item.id) }, onRename = { edit = item }, onDelete = { deleteIds = setOf(item.id) }, onUnhide = { unhideIds = setOf(item.id) }, onDetails = { details = item }) }
                     }
                 }
@@ -143,7 +136,7 @@ import java.util.Date
             }
         }
     }
-    renameFolder?.let { old -> NameDialog("Rename folder", old, { renameFolder = null }) { model.renameFolder(old, it); renameFolder = null } }
+    renameFolder?.let { old -> NameDialog("Rename folder", FolderPath.name(old), { renameFolder = null }) { model.renameFolder(old, it); renameFolder = null } }
     deleteFolder?.let { name -> ConfirmDialog("Move folder to recycle bin?", "The folder and its contents can be restored from the recycle bin.", "Move to bin", { deleteFolder = null }) { model.deleteFolder(name); deleteFolder = null } }
     deleteIds?.let { ids -> ConfirmDialog("Move ${ids.size} file(s) to recycle bin?", "You can restore them until you permanently delete them from the bin.", "Move to bin", { deleteIds = null }) { model.delete(ids); deleteIds = null } }
     unhideIds?.let { ids -> UnhideDialog(ids.size, { unhideIds = null }) { original -> unhideIds = null; model.requestUnhide(ids, original) } }
@@ -155,17 +148,45 @@ import java.util.Date
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(name, { name = it.take(240) }, label = { Text("Filename") }, singleLine = true)
                 Box {
-                    OutlinedButton(onClick = { menu = true }, modifier = Modifier.fillMaxWidth()) { Text(folder) }
-                    DropdownMenu(menu, { menu = false }) { state.folders.forEach { destination -> DropdownMenuItem(text = { Text(destination) }, onClick = { folder = destination; menu = false }) } }
+                    OutlinedButton(onClick = { menu = true }, modifier = Modifier.fillMaxWidth()) { Text(FolderPath.display(folder)) }
+                    DropdownMenu(menu, { menu = false }) { state.folders.sortedBy(FolderPath::display).forEach { destination -> DropdownMenuItem(text = { Text(FolderPath.display(destination)) }, onClick = { folder = destination; menu = false }) } }
                 }
             }
         }, confirmButton = { TextButton(onClick = { edit = null; model.rename(item, name, folder) }, enabled = name.isNotBlank()) { Text("Save") } }, dismissButton = { TextButton(onClick = { edit = null }) { Text("Cancel") } })
     }
     details?.let { item -> AlertDialog(onDismissRequest = { details = null }, title = { Text(item.name) }, text = {
-        Text("${formatSize(item.size)}\n${item.mime}\nFolder: ${item.folder}\nMode: ${if (item.mode == StorageMode.ENCRYPTED) "Encryption" else "Hidden (encrypted)"}\n" +
+        Text("${formatSize(item.size)}\n${item.mime}\nFolder: ${FolderPath.display(item.folder)}\nMode: ${if (item.mode == StorageMode.ENCRYPTED) "Encryption" else "Hidden (encrypted)"}\n" +
             when (item.sourceState) { SourceState.REMOVED -> "Original removed after verification."; SourceState.PENDING_REMOVAL -> "Original removal incomplete; source may still be visible."; SourceState.UNKNOWN -> "Older import: original location/removal status unavailable." } +
             if (item.missing) "\nFile is missing. Try Settings → Retrieval." else "")
     }, confirmButton = { TextButton(onClick = { details = null }) { Text("Close") } }) }
+}
+
+@Composable private fun FolderCard(path: String, state: UiState, grid: Boolean, open: () -> Unit, rename: () -> Unit, delete: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val contents = state.items.filter { FolderPath.within(it.folder, path) }
+    val subfolders = state.folders.count { it != path && FolderPath.within(it, path) }
+    val options: @Composable () -> Unit = {
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Actions for folder ${FolderPath.display(path)}") }
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text("Rename folder") }, onClick = { menu = false; rename() })
+                DropdownMenuItem(text = { Text("Move folder to recycle bin") }, onClick = { menu = false; delete() })
+            }
+        }
+    }
+    val label: @Composable (Modifier) -> Unit = { modifier -> Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(FolderPath.name(path), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text((if (subfolders > 0) "$subfolders subfolders · " else "") + "${contents.size} files · ${formatSize(contents.sumOf { it.size })}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    } }
+    Surface(onClick = open, shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        if (grid) Column(Modifier.heightIn(min = 162.dp).padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Folder, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.weight(1f)); options() }
+            label(Modifier.fillMaxWidth())
+        } else Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Folder, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(14.dp)); label(Modifier.weight(1f)); options()
+        }
+    }
 }
 
 @Composable private fun FileTile(item: VaultItem, selected: Boolean, grid: Boolean, model: VaultViewModel, onClick: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit, onUnhide: () -> Unit, onDetails: () -> Unit) {
@@ -226,7 +247,7 @@ import java.util.Date
     val visibleIds = files.map { it.id } + folders.map { "folder:${it.id}" }
     val allIds = (state.trash.map { it.id } + state.trashFolders.map { "folder:${it.id}" }).toSet()
     Column(Modifier.fillMaxSize()) {
-        Header(parent?.name ?: "Recycle bin", model::back)
+        Header(parent?.name?.let(FolderPath::display) ?: "Recycle bin", model::back)
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("${state.trash.size} files · ${formatSize(state.trash.sumOf { it.size })}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Files stay here until you restore or explicitly permanently delete them.", style = MaterialTheme.typography.bodySmall)
@@ -249,9 +270,9 @@ import java.util.Date
                     modifier = Modifier.clip(RoundedCornerShape(20.dp)).combinedClickable(onClick = { if (state.selected.isEmpty()) model.openTrashFolder(folder.id) else model.select(id) }, onLongClick = { model.select(id) })) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(if (id in state.selected) Icons.Outlined.CheckCircle else Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) { Text(folder.name, fontWeight = FontWeight.Medium); Text("Folder · ${state.trash.count { it.trashFolderId == folder.id }} files", style = MaterialTheme.typography.bodySmall) }
-                        IconButton(onClick = { model.restoreTrash(setOf(id)) }) { Icon(Icons.Outlined.Restore, "Restore folder ${folder.name}") }
-                        IconButton(onClick = { deleting = setOf(id) }) { Icon(Icons.Outlined.DeleteForever, "Permanently delete folder ${folder.name}") }
+                        Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) { Text(FolderPath.display(folder.name), fontWeight = FontWeight.Medium); Text("${folder.paths.size} folder(s) · ${state.trash.count { it.trashFolderId == folder.id }} files", style = MaterialTheme.typography.bodySmall) }
+                        IconButton(onClick = { model.restoreTrash(setOf(id)) }) { Icon(Icons.Outlined.Restore, "Restore folder ${FolderPath.display(folder.name)}") }
+                        IconButton(onClick = { deleting = setOf(id) }) { Icon(Icons.Outlined.DeleteForever, "Permanently delete folder ${FolderPath.display(folder.name)}") }
                     }
                 }
             }
@@ -262,7 +283,7 @@ import java.util.Date
                         Icon(if (item.id in state.selected) Icons.Outlined.CheckCircle else Icons.AutoMirrored.Outlined.InsertDriveFile, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(14.dp)); Column(Modifier.weight(1f)) {
                             Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${formatSize(item.size)} · ${item.folder}", style = MaterialTheme.typography.bodySmall)
+                            Text("${formatSize(item.size)} · ${FolderPath.display(item.folder)}", style = MaterialTheme.typography.bodySmall)
                             Text("Deleted ${DateFormat.getDateInstance().format(Date(item.deletedAt))}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { model.restoreTrash(setOf(item.id)) }) { Icon(Icons.Outlined.Restore, "Restore ${item.name}") }

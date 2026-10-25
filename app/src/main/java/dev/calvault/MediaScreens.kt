@@ -40,6 +40,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.PlayerView
 import dev.calvault.core.VaultItem
+import dev.calvault.core.FolderPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -76,7 +77,7 @@ import kotlinx.coroutines.withContext
             if (fullscreen) IconButton(onClick = model::back, modifier = Modifier.align(Alignment.TopStart).padding(12.dp).background(Color.Black.copy(alpha = .45f), RoundedCornerShape(24.dp))) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to folder", tint = Color.White) }
         }
         if (!fullscreen) Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("${formatSize(item.size)} · ${item.folder}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${formatSize(item.size)} · ${FolderPath.display(item.folder)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = { unhide = true }, Modifier.weight(1f)) { Icon(Icons.Outlined.Visibility, null); Spacer(Modifier.width(8.dp)); Text("Unhide") }
                 IconButton(onClick = { deleting = true }) { Icon(Icons.Outlined.DeleteOutline, "Move to recycle bin") }

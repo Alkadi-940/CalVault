@@ -125,7 +125,7 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
             current.screen == Screen.SETTINGS -> navigate(if (current.settingsReturn == Screen.VIEWER && current.viewing != null) Screen.VIEWER else Screen.VAULT)
             current.screen == Screen.TRASH && current.trashParent != null -> openTrashFolder(null)
             current.screen == Screen.TRASH || current.screen == Screen.RETRIEVE -> navigate(Screen.VAULT)
-            current.screen == Screen.VAULT && current.folder != null -> openFolder(null)
+            current.screen == Screen.VAULT && current.folder != null -> openFolder(FolderPath.parent(current.folder))
             current.screen == Screen.VAULT -> lock()
             else -> { pending = null; lock() }
         }
@@ -210,9 +210,18 @@ class VaultViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun changePin(pin: String) = task("Updating PIN…") { vault.changePin(pin.toCharArray()); message("PIN updated. Your recovery key stays the same.") }
     fun refresh() = task("Loading vault…") {}
-    fun createFolder(name: String) = task("Creating folder…") { vault.createFolder(name.trim()) }
-    fun renameFolder(old: String, name: String) = task("Renaming folder…") { vault.renameFolder(old, name.trim()) }
-    fun deleteFolder(name: String) = task("Moving folder contents to recycle bin…") { vault.deleteFolder(name); if (state.value.folder == name) state.update { it.copy(folder = null) } }
+    fun createFolder(name: String) {
+        val parent = state.value.folder
+        task("Creating folder…") { vault.createFolder(name.trim(), parent) }
+    }
+    fun renameFolder(old: String, name: String) = task("Renaming folder…") {
+        vault.renameFolder(old, name.trim())
+        state.update { it.copy(folder = it.folder?.let { path -> FolderPath.renamed(path, old, FolderPath.child(FolderPath.parent(old), name.trim())) }) }
+    }
+    fun deleteFolder(name: String) = task("Moving folder contents to recycle bin…") {
+        vault.deleteFolder(name)
+        if (state.value.folder?.let { FolderPath.within(it, name) } == true) state.update { it.copy(folder = FolderPath.parent(name)) }
+    }
     fun rename(item: VaultItem, name: String, folder: String) = task("Updating file…") { vault.rename(item.id, name.trim(), folder.trim()) }
     fun delete(ids: Set<String>) = task("Moving to recycle bin…") { vault.delete(ids); state.update { it.copy(selected = emptySet(), imports = it.imports.filterNot { result -> result.id in ids }) } }
     fun restoreTrash(ids: Set<String>) = task("Restoring files…") {

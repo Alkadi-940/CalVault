@@ -1,5 +1,14 @@
 # Changes
 
+## 0.2.1 — Subfolders
+
+- Create folders inside the currently open folder, up to 32 levels, with the same child name allowed under different parents.
+- Show immediate subfolders beside files in grid/list layouts, retain per-folder filters, and navigate with breadcrumbs or Back to the parent.
+- Rename entire folder trees, including descendant file locations and empty folders.
+- Recycle, restore, back up, and migrate complete folder trees. Restoring an individual nested file recreates missing ancestors.
+- Show readable full paths in import/move choices, file details, media viewers, and the recycle bin. Restore the nested location after unlocking.
+- Catalog/recovery-record format 3 reads earlier vaults and backups; literal slashes in legacy flat folder names remain unchanged. Nested backups require this version or newer.
+
 ## 0.2.0 — Android preview
 
 ### Vault and files

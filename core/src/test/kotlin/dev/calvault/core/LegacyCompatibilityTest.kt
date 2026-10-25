@@ -37,7 +37,19 @@ class LegacyCompatibilityTest {
         assertTrue("Family" in target.folders()); assertEquals(1, target.items().size)
     }
     private data class Legacy(val vault: Vault, val root: java.io.File, val recovery: String, val itemId: String, val oldCatalog: ByteArray, val oldObject: ByteArray, val archive: ByteArray)
-    private fun legacyFixture(): Legacy {
+    @Test fun versionTwoFlatFoldersAndTrashMigrateWithoutInterpretingLiteralSlashes() {
+        val data = legacyFixture(2)
+        data.vault.lock(); data.vault.unlock("123456".toCharArray())
+        assertTrue("Old / literal" in data.vault.folders())
+        assertNull(FolderPath.parent("Old / literal"))
+        assertEquals(listOf("Old empty"), data.vault.trashFolders().single().paths)
+        assertArrayEquals(data.oldObject, data.root.resolve("objects/${data.itemId}.cvf").readBytes())
+        val restored = Vault(temp.newFolder("v2-restored"), Device())
+        restored.restoreBackup(data.archive.inputStream(), data.recovery, "112233".toCharArray())
+        restored.restoreFolder(restored.trashFolders().single().id)
+        assertTrue("Old empty" in restored.folders())
+    }
+    private fun legacyFixture(version: Int = 1): Legacy {
         val root = temp.newFolder("legacy-${UUID.randomUUID()}")
         val recovery = Crypto.recoverySecret()
         val vault = Vault(root, Device()).apply { create("123456".toCharArray(), recovery) }
@@ -59,22 +71,32 @@ class LegacyCompatibilityTest {
         val wrappingKey = Crypto.derive(master, header.id.toByteArray(), "object-keys")
         val wrappedFileKey = Crypto.seal(wrappingKey, fileKey, context("$id/key"))
         val oldPlainCatalog = encode {
-            writeInt(1); writeInt(1)
+            writeInt(version)
+            if (version == 2) {
+                writeLong(7); writeInt(2); writeUTF("Family"); writeUTF("Old / literal")
+                writeInt(1); writeUTF(UUID.randomUUID().toString()); writeUTF("Old empty"); writeLong(1700000000000)
+            }
+            writeInt(1)
             writeUTF(id); writeUTF("legacy.txt"); writeUTF("text/plain"); writeUTF("Family")
             writeLong(plain.size.toLong()); writeLong(1700000000000)
             blob(wrappedFileKey); blob(Crypto.digest(plain))
+            if (version == 2) {
+                writeByte(0); writeLong(0)
+                repeat(5) { writeUTF("") }
+                writeByte(0); writeUTF(""); writeLong(7)
+            }
         }
         val metadataKey = Crypto.derive(master, header.id.toByteArray(), "metadata")
         val oldCatalog = Crypto.seal(metadataKey, oldPlainCatalog, context("catalog"))
         root.resolve("catalog.enc").writeBytes(oldCatalog)
         val portable = encode { writeInt(0x43564C31); writeUTF(header.id); blob(byteArrayOf()); blob(byteArrayOf()); blob(header.recoverySalt); blob(header.wrapped) }
         val salt = Crypto.random(16)
-        val public = encode { writeInt(0x43564231); blob(portable); blob(salt) }
+        val public = encode { writeInt(if (version == 1) 0x43564231 else 0x43564232); blob(portable); blob(salt) }
         val archiveKey = Crypto.derive(master, salt, "backup/${header.id}")
         val archive = ByteArrayOutputStream()
         java.io.DataOutputStream(archive).blob(public)
         java.io.DataOutputStream(StreamCipher(archiveKey).encrypt(archive, public)).use {
-            it.blob(oldCatalog); it.writeInt(1); it.writeUTF(id); it.writeLong(encryptedFile.size.toLong()); it.write(encryptedFile)
+            it.blob(oldCatalog); if (version == 2) it.blob(byteArrayOf()); it.writeInt(1); it.writeUTF(id); it.writeLong(encryptedFile.size.toLong()); it.write(encryptedFile)
         }
         listOf(recoveryBytes, recoveryKey, master, fileKey, wrappingKey, metadataKey, archiveKey, oldPlainCatalog).forEach { it.fill(0) }
         return Legacy(vault, root, recovery, id, oldCatalog, encryptedFile, archive.toByteArray())
